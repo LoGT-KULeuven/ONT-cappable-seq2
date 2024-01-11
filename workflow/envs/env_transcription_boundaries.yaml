@@ -1,7 +1,21 @@
 channels:
+  - defaults
   - conda-forge
   - bioconda
+
 dependencies:
-- samtools
-- bedtools
-- r-base
+  - python
+  - setuptools
+  - scipy
+  - pandas
+  - numpy<=1.19.5
+  - pybedtools
+  - idr
+  - deeptools
+  - samtools
+  - bedtools
+  - r-base
+  - r-dplyr
+
+  - pip:
+    - "--editable=git+https://github.com/NICHD-BSPC/termseq-peaks@master#egg=termseq-peaks"

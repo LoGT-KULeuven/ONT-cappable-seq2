@@ -24,6 +24,8 @@ rule termseqPeakCalling:
     params:
         alpha=config["termseq alpha"],
         symb=lambda x: signToSymbol[x.sign]
+    conda:
+        "../envs/env_transcription_boundaries.yaml"
     shell:
         """
         termseq_peaks {input} {input} --peaks {output[0]} --strand {params.symb} -t {params.alpha} --oracle-output {output[1]}
