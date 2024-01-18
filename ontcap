@@ -1,0 +1,226 @@
+#!/bin/bash
+
+set -e
+set -u
+set -o pipefail
+
+display_usage() {
+    echo "ONT-cappable-seq data analysis pipeline"
+    echo "Usage: $0 -f <fasta_file> -e <enriched_file> -c <control_file> [-s <samplename>] [--termseq-alpha <value>] [--cluster-width-tss <value>] [--cluster-width-tts <value>] [-id <identifier>]"
+    exit 1
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -f|--fasta)
+            fasta="$2"
+            shift 2 # past argument and value
+            ;;
+        -e|--enriched="$2")
+            enriched="$2"
+            shift 2
+            ;;
+        -c|--control)
+            control="$2"
+            shift 2
+            ;;
+        -s|--samplename)
+            samplename="$2"
+            shift 2
+            ;;
+        -id|--identifier)
+            identifier="$2"
+            shift 2
+            ;;
+        -o|--output)
+            output="$2"
+            shift 2
+            ;;
+
+        --termseq-alpha)
+            termseq_alpha="$2"
+            shift 2
+            ;;
+        --cluster-width-tss)
+            cluster_width_tss="$2"
+            shift 2
+            ;;
+        --cluster-width-tts)
+            cluster_width_tts="$2"
+            shift 2
+            ;;
+
+        --min-cov-enriched-tss)
+            min_cov_enriched_tss="$2"
+            shift 2
+            ;;
+        --min-cov-enriched-tts)
+            min_cov_enriched_tts="$2"
+            shift 2
+            ;;
+        --min-cov-control-tss)
+            min_cov_control_tss="$2"
+            shift 2
+            ;;
+        --min-cov-control-tts)
+            min_cov_control_tts="$2"
+            shift 2
+            ;;
+
+        --peak-align-error)
+            peak_align_error="$2"
+            shift 2
+            ;;
+
+        --tss-threshold)
+            tss_threshold="$2"
+            shift 2
+            ;;
+        --tts-threshold)
+            tts_threshold="$2"
+            shift 2
+            ;;
+
+        --tss-seq-extract-upstream)
+            tss_seq_extract_upstream="$2"
+            shift 2
+            ;;
+        --tss-seq-extract-downstream)
+            tss_seq_extract_downstream="$2"
+            shift 2
+            ;;
+
+        --tts-seq-extract-upstream)
+            tts_seq_extract_upstream="$2"
+            shift 2
+            ;;
+        --tts-seq-extract-downstream)
+            tts_seq_extract_downstream="$2"
+            shift 2
+            ;;
+
+        *)
+            echo "Error: Invalid argument - $1"
+            display_usage
+            ;;
+    esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+
+# Check for required arguments
+if [[ -z "$fasta" ]] || [[ -z "$enriched" ]] || [[ -z "$control" ]]; then
+    echo "Error: Missing required arguments."
+    display_usage
+fi
+
+# Set default values if not provided
+samplename=${samplename:-""}
+identifier=${identifier:-$(date +'%Y%m%d_%H%M%S')}
+output=${output:-"ONT_seq_result"}
+termseq_alpha=${termseq_alpha:-0.001}
+cluster_width_tss=${cluster_width_tss:-15}
+cluster_width_tts=${cluster_width_tts:-30}
+min_cov_enriched_tss=${min_cov_enriched_tss:-25}
+min_cov_enriched_tts=${min_cov_enriched_tts:-25}
+min_cov_control_tss=${min_cov_control_tss:-2}
+min_cov_control_tts=${min_cov_control_tts:-5}
+peak_align_error=${peak_align_error:-2}
+tss_threshold=${tss_threshold:-1} # can this also be a float?
+tts_threshold=${tts_threshold:-0.20}
+tss_seq_extract_upstream=${tss_seq_extract_upstream:-40}
+tss_seq_extract_downstream=${tss_seq_extract_downstream:-0}
+tts_seq_extract_upstream=${tts_seq_extract_upstream:-30}
+tts_seq_extract_downstream=${tts_seq_extract_downstream:-30}
+
+# Create output dir
+output_folder=$(realpath $output)
+mkdir -p "$output_folder"
+
+check_command() {
+    local cmd="$1"
+    if ! command -v "$cmd" &> /dev/null; then
+        echo "Error: $cmd executable not found in PATH. Ensure $cmd is installed and accessible in the PATH."
+        exit 1
+    fi
+}
+
+check_files_existence() {
+    local program_name="$1"
+    local sample="$2"
+    local ident="$3"
+    shift 3
+    local files=("$@")
+
+    for file in "$(files[@])"; do
+        if [ ! -e "$file" ]; then
+            return # Exit the function if any file is not found
+        fi
+    done
+
+    # All files exist
+    echo "Skipping $program_name for sample: $sample, identifier: $ident (output files already exist)"
+    return 0
+}
+
+run_pychopper() {
+    local enriched="$1"
+    local control="$2"
+    local sample="$3"
+    local ident="$4"
+    local output_folder="$5"
+
+    local pychopper_out="${output_folder}/processed_fastq/pychopper/pychopper_${sample}_${ident}"
+    local enriched_fq_out="${pychopper_out}/${sample}_enriched_${ident}_full_length_output.fq"
+    local control_fq_out="${pychopper_out}/${sample}_control_${ident}_full_length_output.fq"
+
+    # If fastq output files already exist, skip pychopper execution
+    check_files_existence "pychopper" "$sample" "$ident" "$enriched_fq_out" "$control_fq_out"
+
+    # Check if pychopper is found
+    check_command "pychopper"
+
+    mkdir -p "$pychopper_out"
+    pychopper -r "$pychopper_out/report_enriched.pdf" -S "$pychopper_out/statistics_enriched.tsv" $enriched $enriched_fq_out
+    pychopper -r "$pychopper_out/report_control.pdf" -S "$pychopper_out/statistics_control.tsv" $control $control_fq_out
+}
+
+run_pychopper $enriched $control $samplename $identifier $output_folder
+
+run_cutadapt() {
+    # cutadapt supports compressed files
+    local sample="$1"
+    local ident="$2"
+    local output_folder="$3"
+    local cutadapt_in =
+
+    local cutadapt_out="${output_folder}/processed_fastq/cutadapt/"
+    local enriched_fq_out="${cutadapt_out}/${sample}_enriched_${ident}_cutadapt.fq"
+    local control_fq_out="${cutadapt_out}/${sample}_control_${ident}_cutadapt.fq"
+    local temp_enriched=$"${cutadapt_out}/sample_enriched_${ident}_cutadapt_temp.fq"
+    local temp_control=$"${cutadapt_out}/sample_control_${ident}_cutadapt_temp.fq"
+
+    check_files_existence "cutadapt" "$sample" "$ident" "$enriched_fq_out" "$control_fq_out"
+    check_command "cutadapt"
+
+    mkdir -p "$cutadapt_out"
+
+    enriched_pychopper="${output_folder}/processed_fastq/pychopper_${sample}_${ident}/${sample}_enriched_${ident}_full_length_output.fq"
+    control_pychopper="${output_folder}/processed_fastq/pychopper_${sample}_${ident}/${sample}_control_${ident}_full_length_output.fq"
+
+    cutadapt -a A{{10}} -e 0.1 -j 0 -o "$temp_enriched" "$enriched_pychopper"
+    cutadapt -a A{{10}} -e 0.1 -j 0 -o "$temp_control" "$control_pychopper"
+
+    cutadapt -g TTTCTGTTGGTGCTGATATTGCTGGG -e 0.1 -j 0 -o "$enriched_fq_out" "$temp_enriched"
+    cutadapt -g TTTCTGTTGGTGCTGATATTGCTGGG -e 0.1 -j 0 -o "$control_fq_out" "$temp_control"
+
+    rm "$temp_enriched"
+    rm "$temp_control"
+}
+
+run_minimap() {
+    
+    check_command "minimap2"
+}
+
