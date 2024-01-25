@@ -46,14 +46,16 @@ rule combineCovAndPeaks:
         """
 # Adds total number of reads to the peaks coverage information.
 rule addTotalReadsToCounts:
-    input: '{sample}_peak_calling/{prefix}.{num}end.{sign}.peaks.oracle.narrowPeak.counts', 'results/alignments/BAM_files_{sample}/{prefix}.sorted.bam'
+    input: 
+        counts='{sample}_peak_calling/{prefix}.{num}end.{sign}.peaks.oracle.narrowPeak.counts', 
+        bam='results/alignments/BAM_files_{sample}/{prefix}.sorted.bam'
     output: temp('{sample}_peak_calling/{prefix}.{num}end.{sign}.peaks.oracle.narrowPeak.counts.withTR')
     conda:
         "../envs/env_transcription_boundaries.yaml"
     shell:
         """
-        total_mapped=$(samtools view -c -F4 {input[1]})
-        awk "{{print \$0, $total_mapped}}" {input[0]} > {output}
+        total_mapped=$(samtools view -c -F4 {input.bam})
+        awk '{{print $0, $total_mapped}}' {input.counts} > {output}
         """
 # uses custom R script to cluster peaks based on peaks coverage information + total number of reads.
 rule clusterReads:
