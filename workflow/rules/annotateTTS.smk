@@ -108,9 +108,23 @@ rule combinePosAndNegBedFilesTTS:
         """
         cat {input} > {output}
         """
+
+rule correctNegativeValuesTTS:
+    input:
+        'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/TTS_{sample}_{ident}.bed'
+    output:
+        'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/TTS_{sample}_{ident}_corrected.bed'
+    run:
+        with open(input[0], 'r') as infile, open(output[0], 'w') as outfile:
+            for line in infile:
+                parts = line.split()
+                if int(parts[1]) < 0:
+                    parts[1] = '0'
+                outfile.write('\t'.join(parts) + '\n')
+
 rule extractSequencesTTS:
     input: 
-        'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/TTS_{sample}_{ident}.bed'
+        'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/TTS_{sample}_{ident}_corrected.bed'
     output:
         'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/TTS_seq_{sample}_{ident}.fa.out'
     params:

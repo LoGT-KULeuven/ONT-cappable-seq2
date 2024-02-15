@@ -1,133 +1,116 @@
-# abstract
-Detailed transcription maps of bacteriophages are not usually explored, limiting our understanding of molecular phage biology and restricting their exploitation and engineering. With ONT-cappable-seq, primary transcripts are specifically capped, enriched, and prepared for long-read sequencing on the nanopore sequencing platform. This enables end-to-end sequencing of unprocessed transcripts covering both phage and host genome, thus providing insight on their operons. The subsequent analysis pipeline makesit possible to rapidly identify the most important transcriptional features such as transcription start and stop sites. The obtained data can thus provide a comprehensive overview of the transcription by your phage and/or bacterium of interest.
-
 # ONT-cappable-seq2
 
-We describe here a general overview of the updated ONT-cappable-seq data analysis pipeline, which is now fully automated. For a more detailed overview of individual steps, see the old ONT-cappable-seq repository. The automated ONT-cappable-seq data analysis tool (v2) is implemented in the workflow management system Snakemake. 
+This document provides a comprehensive overview of the updated ONT-cappable-seq data analysis pipeline, now fully automated. For detailed information on individual steps, please refer to the [old ONT-cappable-seq repository](https://github.com/LoGT-KULeuven/ONT-cappable-seq).
 
-### **I. Installation**
-Using Conda, create a separate environment (here called ONT-cappable-seq) where we will install the tools and run the pipeline.
+## Installation
+
+**Note:** This snakemake pipeline is designed for Linux systems! Windows users are advised to install [Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/install) before proceeding with the installation.
+
+1. Install Snakemake by following the [instructions provided here](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html).
+
+2. Clone the ONT-cappable-seq2 repository to the desired location to obtain the Snakemake pipeline:
 
 ```bash
-conda create -n ONT-cappable-seq python=3.9
-conda activate ONT-cappable-seq
+git clone https://github.com/LoGT-KULeuven/ONT-cappable-seq2.git
 ```
 
-The pipeline uses eight external tools (pychopper, cutadapt, minimap2, samtools, samclip, bedtools, termseq-peaks, r-dplyr). All tools, except for termseq-peaks and dplyr, are automatically installed in their ownenvironment upon running the Snakemake pipeline. In the ONT-cappable-seq environment, navigate to the ONT-cappable-seq2 project folder and manually install the termseq-peaks package using the following commands:
+## Usage
 
-```bash
-cd ONT-cappable-seq2/
-git clone https://github.com/NICHD-BSPC/termseq-peaks
-cd termseq-peaks
-conda install -c bioconda --file requirements.txt
-python setup.py install
-termseq_peaks #check to see if the installation worked
+### I. Data Navigation
+
+Obtain high-quality FASTA files for the reference genomes of the organisms you are studying and store them in the `input/genome_data` directory. For better organization, it is advisable to rename the FASTA files using the respective IDs of the phage or host, referred to as `sampleID`. Additionally, download the FLuc Control Plasmid sequence used for in vitro transcription of the RNA control spike-in from the manufacturer's website. Save this sequence in an appropriate location.
+
 ```
-
-Afterwards, install the Snakemake tool and the rdplyr package in the same environment:
-```bash
-conda install -c bioconda -c conda-forge snakemake
-conda install -c conda-forge r-dplyr
-```
-
-### **II. Project navigation and data preparation**
-After downloading, the ONT-cappable-seq project folder is organized as follows:
-
-```bash
-ONT-cappable-seq2/
-├── workflow/
- ├── envs/
- ├── rules/
- └── snakefile
-├── termseq-peaks/
-├── config/
- └── config.yaml
-├── input/
- ├── fastq_data/
- └── genome_data/
-└── peak_clustering.r
-```
-
-Retrieve high-quality FASTA files of the reference genomes of your organisms of interest and store them in theinput/genome_data directory. For clarity, we recommend to rename the FASTA files to the respective IDs of the phage (or host)(=sampleID). The sequence of the FLuc control plasmid used for in vitro transcription of the RNA control spike-in can be downloaded from the manufacturer’s website 
-
-```bash
 ONT-cappable-seq2/
 …
 ├── input/
- └── genome_data/
-  ├── phageID.fasta
-  ├── hostID.fasta
-  └── in-vitro-RNA.fasta
+|     └── genome_data/
+|          ├── phageID.fasta
+|          ├── hostID.fasta
+|          └── in-vitro-RNA.fasta
 ```
 
-Place the raw sequencing files in the input/fastq_data directory and rename them to ensure they contain information on sampleID and treatment (enriched or control sample). For each individual sample, it is important to have a single decompressed.fastq file that contains sufficient reads with an appropriate mean read length (>200 bp).
 
-```bash
+Place the raw sequencing files in the `input/fastq_data` directory and rename them to incorporate information about `sampleID` and treatment (enriched or control sample). Ensure that each individual sample has a single decompressed .fastq file with an adequate number of reads and a suitable mean read length (> 200 bp). This naming convention and file organization will contribute to the clarity and efficiency of the analysis.
+
+```
 ONT-cappable-seq2/
 …
 ├── input/
- ├─ fastq_data/
-  ├── sampleID_enriched.fastq
-  └── sampleID_control.fastq
-└── genome_data/
-  ├── phageID.fasta
-  ├── hostID.fasta
-  └── in-vitro-RNA.fasta
+|     ├─ fastq_data/
+|        ├── sampleID_enriched.fastq
+|        └── sampleID_control.fastq
+|     └── genome_data/
+|        ├── phageID.fasta
+|        ├── hostID.fasta
+|        └── in-vitro-RNA.fasta
+```
+### II. Setting up the Configuration File
+
+1. Navigate to the `config` directory within the ONT-cappable-seq project folder.
+
+2. Open the `config.yaml` file. This file contains paths to your input files and various parameters used for annotating transcriptional boundaries. A general example of the config.yaml file is displayed below:
+
+```yaml
+Sample name: sampleID
+fasta file: input/genome_data/sampleID.fasta
+enriched fastq: input/fastq_data/sampleID_enriched.fastq
+control fastq: input/fastq_data/sampleID_control.fastq
+ID: group
+termseq alpha: 0.001
+
+cluster width:
+  TSS: 15
+  TTS: 30
+
+minimum coverage:
+  enriched:
+    TSS: 25
+    TTS: 25
+  control:
+    TSS: 2
+    TTS: 2
+
+peak alignment error: 2
+TSS Threshold: 1.5
+TTS threshold: 0.25
+
+TSS sequence extraction:
+  upstream: 40
+  downstream: 0
+
+TTS sequence extraction:
+  upstream: 30
+  downstream: 30
 ```
 
-### **III. Setting up the configuration file**
+- **Sample name**: Contains the name of your organism of interest (e.g., sampleID, LUZ19).
+- **Fasta file**: Path to your reference genome (e.g., `input/genome_data/sampleID.fasta`, `input/genome_data/LUZ19.fasta`).
+- **Enriched fastq**: Path to the raw sequencing file of the enriched sample (e.g., `input/fastq_data/sampleID_enriched.fastq`, `input/fastq_data/LUZ19_enriched.fastq`).
+- **Control fastq**: Path to the raw sequencing file of the control sample (e.g., `input/fastq_data/sampleID_control.fastq`, `input/fastq_data/LUZ19_control.fastq`).
+- **ID**: Additional identifier for sample classification (e.g., timepoint, condition, replicate).
+- **Termseq alpha**: Peak calling threshold for the termseq-peak algorithm.
+- **Cluster width**: Distance within which peak positions are clustered.
+- **Minimum coverage**: Minimum number of reads required for a candidate TSS/TTS position.
+- **Peak alignment error**: Positional difference allowed between peak positions in enriched and control datasets.
+- **TSS/TTS threshold**: Enrichment ratio and read reduction thresholds for TSS and TTS annotation.
+- **TSS/TTS sequence extraction**: Upstream and downstream nucleotides relative to TSS and TTS for DNA sequence extraction.
 
-Navigate to the config directory in the ONT-cappable-seq project folder and open the config.yaml file. This file contains the paths to your input files and the different parameters used for annotation of the transcriptional boundaries.
 
-where:
 
-–**Sample name**: contains the name of your organism of interest (sampleID, e.g., LUZ19).
+### III. Running the Pipeline
 
-–**Fasta file**: contains the path to your reference genome of interest (input/genome_data/sampleID.fasta, e.g.,input/genome_data/LUZ19.fasta).
-
-–**Enriched fastq**: contains the path to the raw sequencing file of your enriched sample (input/fastq_data/sampleID_enriched.fastq, e.g., input/fastq_data/LUZ19_enriched.fastq).
-
-–**Control fastq**: contains the path to the raw sequencing file of your control sample (input/fastq_data/sampleID_control.fastq, e.g., input/fastq_data/LUZ19_control.fastq).
-
-–**ID**: additional identifier to classify your samples (cannot be empty), e.g., timepoint, specific condition, replicate, etc.
-
-–**Termseq alpha**: peak calling threshold value used by the termseq-peak algorithm (-t flag).
-
-–**Cluster width**: peak positions within the specified distance are clustered. The position with the highest number of reads is takenas the representative of the cluster.
-
-–**Minimum coverage**: absolute number of reads required at this position to be considered as candidate TSS/TTS position. Thiscan be specified for the enriched and the control sample separately.
-
-–**Peak alignment error**: positional difference (n) allowed between peak positions identified in the enriched and the control dataset used to calculate the enrichment ratio at a specific genomic position i, based on the read count per million mapped reads (RPM) at that peak position (see Putzeys et al. 2022).
-
--**TSS threshold**: enrichment ratio value that needs to be surpassed to annotate 5′ peak position as a TSS.
-
-–**TTS threshold**: minimum read reduction to annotate 3′ peak position as TTS, determined by calculating the coverage dropacross the putative TTS, averaged over a 20-bp region up- and downstream the TTS.
-
-–**TSS/TTS sequence extraction**: selection of promoter and terminator region for which the user wants to extract the DNA sequence, defined by the number of up- and downstream nucleotides relative to the TSS and TTS.
-
-It is important that the sampleIDs and names of the FASTA and FASTQ files in the config file are modified according to the input files provided. The default settings for TSS and TTS identification can be adjusted to optimize for your specific organism of interest.
-
-### **IV. Running the Pipeline**
-In the terminal, change directory to the ONT-cappable-seq project folder and execute the Snakemake pipeline, which will run according to the settings specified in the configuration file.
+Before executing the Snakemake pipeline, perform a dry-run to ensure the workflow is correctly defined:
 
 ```bash
 cd ONT-cappable-seq2
-snakemake --cores N --use-conda
+snakemake --dry-run
 ```
-where N is the number of cores available on your computer to run the pipeline. In-house, generally 8 cores are used. All commandline options can be printed by calling Snakemake -h.
 
-### **V. Result Interpretation**
+To run the Snakemake pipeline, use the following commands:
+```bash
+cd ONT-cappable-seq2
+snakemake --use-conda --cores 8
+```
+During the initial run, the pipeline will install all necessary Conda packages, which may take some time. Subsequent runs will reuse this Conda environment.
 
-After running the pipeline, you can find the results in the newly created Results directory, which contains the subdirectories processed_fastq, alignments, and transcript_boundaries.
-
-Notes:
-
-1. The raw sequencing files of the enriched and control sample are processed in two stages, in which they are first oriented with pychopper and trimmed using cutadapt. The **processed sequencing FASTQ (.fq) files** and tool-specific metadata can be retrieved in their respective processed_fastq folder.
-   
-2. The **sorted alignment files (.BAM)** together with their index files (.BAI) of the enriched and the control samples can be found in the alignments/BAM_files_sampleID folder. These files can be uploaded in Integrative Genomics Viewer (IGV) to visually inspectthe full-length transcriptome of the input genome/sequence you provided.
-   
-3. For each sampleID and additional ID provided, **TSS identification results** are deposited in their respective TSS_sampleID_ID subfolder within the transcript_boundaries folder. This folder contains a .BED file and FASTA (.fa) file with the promoter regionsand sequences associated with the identified TSS, respectively, as specified in the config file. In addition, one can find two strand-specific .CSV files that specify the absolute and relative read counts of each annotated TSS position on the specified
-strand, as well as the enrichment ratio.
-
-4. Similarly, **TTS identification results** are deposited in their respective TTS_sampleID_ID subfolder within the transcript_boundaries folder. This folder contains a .BED file and FASTA (.fa) file that respectively contain the terminator regions and sequences associated with the TTS positions defined by ONT-cappable-seq, as specified in the config file. In addition, two strand-specific .CSV files can be found, which indicate the read count reduction across each annotated TSS position on the specified strand.
-   
