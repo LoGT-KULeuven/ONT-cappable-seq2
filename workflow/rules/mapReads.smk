@@ -22,12 +22,19 @@ rule pychopper:
 
 rule cutadapt:
     input: "results/processed_fastq/pychopper/pychopper_{sample}_{ident}/{sample}_{cond}_{ident}_full_length_output.fq"
-    output: temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_2.fq")
+    output: temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_temp1.fq"),
+            temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_temp2.fq"),
+            temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_2.fq")
     conda:
         "../envs/env_read_mapping.yaml"
     shell:
         """
-            cutadapt -a A{{10}} -e 0.1 -j 0 -o {output} {input}
+            cutadapt --poly-a -j 0 -o {output[0]} {input}
+            ## reads that are completely trimmed (i.e., remaining sequence is empty) are not removed by default. If not removed, result in ZeroDivisionError for --max-aer argument
+            chmod +x ./remove_polyA_only.py
+            ./remove_polyA_only.py {output[0]} {output[1]}
+            ## --max-aer recommended for long-read sequencing
+            cutadapt -j 0 -o {output[2]} {output[1]} --max-aer 0.1
         """
 rule cutadapt2:
     input: "results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_2.fq"
@@ -48,7 +55,7 @@ rule minimap2:
         fa=fasta
     shell:
         """
-        minimap2 -ax map-ont -k14 -t 8 {params.fa} {input} > {output}
+        minimap2 -ax map-ont -k14 -t 8 -p 0.99 {params.fa} {input} > {output}
         """
 # creates index file for fasta file when needed
 rule fastaIndex:
