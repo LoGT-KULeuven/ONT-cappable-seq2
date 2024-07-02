@@ -31,8 +31,8 @@ rule cutadapt:
         """
             cutadapt --poly-a -j 0 -o {output[0]} {input}
             ## reads that are completely trimmed (i.e., remaining sequence is empty) are not removed by default. If not removed, result in ZeroDivisionError for --max-aer argument
-            chmod +x ./remove_polyA_only.py
-            ./remove_polyA_only.py {output[0]} {output[1]}
+            chmod +x ./remove_empty_seqs.py
+            ./remove_empty_seqs.py {output[0]} {output[1]}
             ## --max-aer recommended for long-read sequencing
             cutadapt -j 0 -o {output[2]} {output[1]} --max-aer 0.1
         """
