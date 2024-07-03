@@ -21,6 +21,7 @@ Note: changes to the pipeline as of 3/07/2024 include:
 - cutadapt --max-aer 0.1: filter error rate that takes into account the different read lengths typical for ont data
 - minimap2 -p 0.99
 - compatibility to multiple nucleotide sequences in the fasta file in peak clustering and TSS/TTS annotation
+- Additional scripts: `remove_empty_seqs.py` (removes empty reads after poly-A clipping with cutadapt, before filtering), `peak_calling.py` (simplified peak calling, replaces the termseq-peaks packages)
 
 ## Usage
 
