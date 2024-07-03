@@ -17,5 +17,3 @@ dependencies:
   - bedtools
   - r-base
   - r-dplyr
-  - pip:
-    - "--editable=git+https://github.com/NICHD-BSPC/termseq-peaks@master#egg=termseq-peaks"
