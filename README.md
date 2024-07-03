@@ -13,6 +13,14 @@ This document provides a comprehensive overview of the updated ONT-cappable-seq 
 ```bash
 git clone https://github.com/LoGT-KULeuven/ONT-cappable-seq2.git
 ```
+## Installation
+Note: changes to the pipeline as of 3/07/2024 include:
+- updated conda environment env_read_mapping: cutadapt>=4.4, biopython
+- removal of termseq-peaks as dependency
+- cutadapt --poly-a to only remove polyA-stretches at the ends (and not in-sequence)
+- cutadapt --max-aer 0.1: filter error rate that takes into account the different read lengths typical for ont data
+- minimap2 -p 0.99
+- compatibility to multiple nucleotide sequences in the fasta file in peak clustering and TSS/TTS annotation
 
 ## Usage
 
