@@ -82,7 +82,6 @@ rule NegEffRatios:
             chrtr=$(echo $chr | tr -d '"')
             hash_file="results/transcript_boundaries/gfiles/"$(echo -n "$chrtr" | md5sum | awk NF=1)"_genome.txt"
 
-            # Question: why +10?
             negBedFileTTS=$(awk -v TTS="$peak" -v chr="$chrtr" '$1 == chr && $2 < TTS+10' <(echo "$negBedFile"))
             genomeCovFile=$(bedtools genomecov -g "$hash_file" -i <(echo "$negBedFileTTS") -d)
             downstreamTTSaverageCoverage=$(awk -v TTS="$peak" '$2 < TTS && $2 >= TTS-20' <(echo "$genomeCovFile") | \
