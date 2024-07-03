@@ -5,7 +5,7 @@ channels:
 dependencies:
 - epi2melabs::pychopper
 - pandas=1.5.3
-- cutadapt
+- cutadapt>=4.4
 - minimap2
 - samtools
 - samclip
