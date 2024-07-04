@@ -88,8 +88,8 @@ rule PosPeaksToBedFile:
         down=config["TSS sequence extraction"]["downstream"]
     shell:
         """
-        awk -v FS='\t' -v OFS='\t' -F ' ' '{{print $1, $4 - {params.up}, $4 + {params.down}, "TSS_POS_" NR, 0, "+"}}' {input[0]} | uniq > {output[0]}
-        awk -v FS='\t' -v OFS='\t' -F ' ' '{{print $8, $11 - {params.up}, $11 + {params.down}, "TSS_POS_" NR, 0, "+"}}' {input[0]} | uniq > {output[1]}
+        awk -v FS='\t' -v OFS='\t' -F ',' '{{print $1, $4 - {params.up}, $4 + {params.down}, "TSS_POS_" NR, 0, "+"}}' {input[0]} | uniq > {output[0]}
+        awk -v FS='\t' -v OFS='\t' -F ',' '{{print $8, $11 - {params.up}, $11 + {params.down}, "TSS_POS_" NR, 0, "+"}}' {input[0]} | uniq > {output[1]}
         sed -i 's/\"//g' {output[0]}
         sed -i 's/\"//g' {output[1]}     
         """
@@ -103,8 +103,8 @@ rule NegPeaksToBedFile:
         down=config["TSS sequence extraction"]["downstream"]
     shell:
         """
-        awk -v FS='\t' -v OFS='\t' -F ' ' '{{print $1, $4 - {params.down}, $4 + {params.up}, "TSS_NEG_" NR,0 , "-"}}' {input[0]} | uniq > {output[0]}
-        awk -v FS='\t' -v OFS='\t' -F ' ' '{{print $8, $11 - {params.down}, $11 + {params.up}, "TSS_NEG_" NR,0 , "-"}}' {input[0]} | uniq > {output[1]}
+        awk -v FS='\t' -v OFS='\t' -F ',' '{{print $1, $4 - {params.down}, $4 + {params.up}, "TSS_NEG_" NR,0 , "-"}}' {input[0]} | uniq > {output[0]}
+        awk -v FS='\t' -v OFS='\t' -F ',' '{{print $8, $11 - {params.down}, $11 + {params.up}, "TSS_NEG_" NR,0 , "-"}}' {input[0]} | uniq > {output[1]}
         sed -i 's/\"//g' {output[0]}
         sed -i 's/\"//g' {output[1]}
         """
