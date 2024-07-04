@@ -22,8 +22,8 @@ def aggregate_input(wildcards):
 rule PosEffRatios:
     input: 
         '{sample}_peak_calling/{sample}_enriched_{ident}.3end.plus.peaks.oracle.narrowPeak.counts.clustered.csv',
-        aggregate_input,
-        'results/alignments/BAM_files_{sample}/{sample}_enriched_{ident}.sorted.bam'
+        'results/alignments/BAM_files_{sample}/{sample}_enriched_{ident}.sorted.bam',
+        aggregate_input
     output: 
         'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/eff_ratios_{sample}_{ident}.plus.drop.coverage'
     params:
@@ -32,7 +32,7 @@ rule PosEffRatios:
         "../envs/env_annotation.yaml"
     shell:
         """
-        bedFile=$(bedtools bamtobed -i {input[2]} | sort -k1,1 -k2,2n)
+        bedFile=$(bedtools bamtobed -i {input[1]} | sort -k1,1 -k2,2n)
         posBedFile=$(grep -w "+" <(echo "$bedFile"))
         [ ! -e {output} ] || rm {output}
         > {output}
@@ -62,8 +62,8 @@ rule PosEffRatios:
 rule NegEffRatios:
     input: 
         '{sample}_peak_calling/{sample}_enriched_{ident}.3end.minus.peaks.oracle.narrowPeak.counts.clustered.csv',
-        aggregate_input,
-        'results/alignments/BAM_files_{sample}/{sample}_enriched_{ident}.sorted.bam'
+        'results/alignments/BAM_files_{sample}/{sample}_enriched_{ident}.sorted.bam',
+        aggregate_input
     output: 
         'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/eff_ratios_{sample}_{ident}.minus.drop.coverage'
     params:
@@ -72,7 +72,7 @@ rule NegEffRatios:
         "../envs/env_annotation.yaml"
     shell:
         """
-        bedFile=$(bedtools bamtobed -i {input[2]} | sort -k1,1 -k2,2n)
+        bedFile=$(bedtools bamtobed -i {input[1]} | sort -k1,1 -k2,2n)
         negBedFile=$(grep -w "-" <(echo "$bedFile"))
         [ ! -e {output} ] || rm {output}
         > {output}
