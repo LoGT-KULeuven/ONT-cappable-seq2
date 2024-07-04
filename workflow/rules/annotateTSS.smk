@@ -60,17 +60,19 @@ rule getInformationFromOverlappingPeaks:
         commonEnriched=""
         while IFS=',' read -r var1 var2
         do
-        out=$(awk -F "," -v OFS="," -v a="$var1" -v b="$var2" '$2 == a && $15 == b {{print $2,$3,$4,$15,$6,$18,$19}}' {>        commonEnriched+="$out\n"
+        out=$(awk -F "," -v OFS="," -v a="$var1" -v b="$var2" '$2 == a && $15 == b {{print $2,$3,$4,$15,$6,$18,$19}}' {input[0]})
+        commonEnriched+="$out\n"
         done <<< "$(awk -F ',' -v OFS=',' '{{ print $1,$2 }}' {input[2]})"
 
 
         commonControl=""
         while IFS=',' read -r var1 var2
         do
-        out=$(awk -F "," -v OFS="," -v a="$var1" -v b="$var2" '$2 == a && $15 == b {{print $2,$3,$4,$15,$6,$18,$19}}' {>        commonControl+="$out\n"
+        out=$(awk -F "," -v OFS="," -v a="$var1" -v b="$var2" '$2 == a && $15 == b {{print $2,$3,$4,$15,$6,$18,$19}}' {input[1]})
+        commonControl+="$out\n"
         done <<< "$(awk -F ',' -v OFS=',' '{{ print $3,$4 }}' {input[2]})"
 
-        # remove malformed lines (i.e., empty values for both commonControl and commonEnriched -> pattern ^,$)
+        # remove malformed lines (i.e., empty values for both commonControl and commonEnriched -> ^,$)
         paste -d ',' <(echo -e "$commonEnriched") <(echo -e "$commonControl") | sed '/^,$/d' |\
         awk -F ',' -v OFS=',' '{{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $7/$14}}' |\
         sort -g -k 1,2 | awk -v t={params.threshold} -F "," '$15 > t {{print }}' > {output}
