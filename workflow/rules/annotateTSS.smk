@@ -33,7 +33,7 @@ rule getOverlappingPeaksWithError:
         """
         errorPeaks=$(awk -F ',' -v OFS="," '{{print $1,$2{params.symb}{wildcards.error}}}' {input[0]})
         test=$(grep -Fx -f {input[1]} <(echo "$errorPeaks") || echo "")
-        awk -F ',' 'BEGIN{{FS=","; OFS=","}}{{for(i=1;i<=NF;i++) {{split($i,a,","); if (a[2]>0) {{print a[1],a[2],a[1],a[2]{params.invSymb}{wildcards.error}}}}}}}' <(echo "$test") > {output}
+        awk -F ' ' 'BEGIN{{FS=" "; OFS=","}}{{for(i=1;i<=NF;i++) {{split($i,a,","); if (a[2]>0) {{print a[1],a[2],a[1],a[2]{params.invSymb}{wildcards.error}}}}}}}' <(echo "$test") > {output}
         """
 # Combine peaks that overlap exactly and peaks that do not overlap exactly, but within error margin
 rule getAllOverlappingPeaks:
