@@ -7,8 +7,8 @@ dependencies:
   - pip
   - setuptools
   - scipy
-  - pandas
-  - numpy<=1.19.5
+  - pandas==2.2.2
+  - numpy==1.26.4
   - pybedtools
   - idr
   - deeptools
