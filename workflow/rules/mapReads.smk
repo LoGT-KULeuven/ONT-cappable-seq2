@@ -66,6 +66,7 @@ rule fastaIndex:
         fa=fasta
     shell:
         """
+        export LC_ALL=C
         samtools faidx {params.fa}
         """
 # Soft clipping and converting SAM file to sorted BAM file
@@ -78,6 +79,7 @@ rule clipping:
         fa=fasta
     shell:
         """
+        export LC_ALL=C
         samclip --max 10 --ref  {params.fa} < {input[0]} > {output}
         """
 # convert SAM files to BAM files
@@ -88,6 +90,7 @@ rule samToBam:
         "../envs/env_read_mapping.yaml"
     shell:
         """
+        export LC_ALL=C
         samtools view -S -b {input} > {output}
         """
 # sort BAM files
@@ -98,6 +101,7 @@ rule sortBam:
         "../envs/env_read_mapping.yaml"
     shell:
         """
+        export LC_ALL=C
         samtools sort {input} -o {output}
         """
 #index BAM files
@@ -108,5 +112,6 @@ rule indexSortedBAM:
         "../envs/env_read_mapping.yaml"
     shell:
         """
+        export LC_ALL=C
         samtools index {input}
         """
