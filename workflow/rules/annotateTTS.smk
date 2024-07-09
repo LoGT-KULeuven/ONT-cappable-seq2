@@ -32,6 +32,8 @@ rule PosEffRatios:
         "../envs/env_annotation.yaml"
     shell:
         """
+        export LC_ALL=C
+
         bedFile=$(bedtools bamtobed -i {input[1]} | sort -k1,1 -k2,2n)
         posBedFile=$(grep -w "+" <(echo "$bedFile"))
         [ ! -e {output} ] || rm {output}
@@ -72,6 +74,8 @@ rule NegEffRatios:
         "../envs/env_annotation.yaml"
     shell:
         """
+        export LC_ALL=C
+
         bedFile=$(bedtools bamtobed -i {input[1]} | sort -k1,1 -k2,2n)
         negBedFile=$(grep -w "-" <(echo "$bedFile"))
         [ ! -e {output} ] || rm {output}
