@@ -10,8 +10,8 @@ rule getPeaks:
         temp('{sample}_{ident}_enrichedPeaks.{sign}.csv'), temp('{sample}_{ident}_controlPeaks.{sign}.csv')
     shell:
         """
-        awk -F ',' '{{print $15}}' {input[0]}| awk 'NR>1' > {output[0]}
-        awk -F ',' '{{print $15}}' {input[1]}| awk 'NR>1' > {output[1]}
+        awk -F ',' -v OFS=',' '{{print $2,$15}}' {input[0]}| awk 'NR>1' > {output[0]}
+        awk -F ',' -v OFS=',' '{{print $2,$15}}' {input[1]}| awk 'NR>1' > {output[1]}
         """
 # Find all peaks that are found in both enriched and control and seperate them from non-overlapping peaks
 rule splitOverlappingPeaks:
@@ -31,9 +31,9 @@ rule getOverlappingPeaksWithError:
         invSymb=lambda x: signToInverseSymbolPos[x.symb]
     shell:
         """
-        errorPeaks=$(awk -F ',' '{{print $1{params.symb}{wildcards.error}}}' {input[0]})
+        errorPeaks=$(awk -F ',' -v OFS="," '{{print $1,$2{params.symb}{wildcards.error}}}' {input[0]})
         test=$(grep -Fx -f {input[1]} <(echo "$errorPeaks") || echo "")
-        awk -F ',' 'BEGIN{{FS="\t"; OFS=","}}{{if ($1 > 0) {{print $1,$1{params.invSymb}{wildcards.error}}}}}' <(echo "$test") > {output}
+        awk -F ' ' 'BEGIN{{FS=" "; OFS=","}}{{for(i=1;i<=NF;i++) {{split($i,a,","); if (a[2]>0) {{print a[1],a[2],a[1],a[2]{params.invSymb}{wildcards.error}}}}}}}' <(echo "$test") > {output}
         """
 # Combine peaks that overlap exactly and peaks that do not overlap exactly, but within error margin
 rule getAllOverlappingPeaks:
@@ -57,14 +57,25 @@ rule getInformationFromOverlappingPeaks:
         threshold=config["TSS Threshold"]
     shell:
         """
-        commonEnriched=$(awk -F ',' '{{ print $1 }}' {input[2]} |\
-        xargs -I {{}} awk -F "," '$15 == {{}} {{print $2, $3, $4, $15, $6, $18, $19}}' {input[0]})
-        commonControl=$(awk -F ',' '{{ print $2 }}' {input[2]} |\
-        xargs -I {{}} awk -F "," '$15 == {{}} {{print $2, $3, $4, $15, $6, $18, $19}}' {input[1]})
+        commonEnriched=""
+        while IFS=',' read -r var1 var2
+        do
+        out=$(awk -F "," -v OFS="," -v a="$var1" -v b="$var2" '$2 == a && $15 == b {{print $2,$3,$4,$15,$6,$18,$19}}' {input[0]})
+        commonEnriched+="$out\n"
+        done <<< "$(awk -F ',' -v OFS=',' '{{ print $1,$2 }}' {input[2]})"
 
-        paste -d ' ' <(echo "$commonEnriched") <(echo "$commonControl") |\
-        awk '{{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $7/$14}}' |\
-        sort -g -k 2,2 | awk -v t={params.threshold} -F " " '$15 > t {{print }}' > {output}
+
+        commonControl=""
+        while IFS=',' read -r var1 var2
+        do
+        out=$(awk -F "," -v OFS="," -v a="$var1" -v b="$var2" '$2 == a && $15 == b {{print $2,$3,$4,$15,$6,$18,$19}}' {input[1]})
+        commonControl+="$out\n"
+        done <<< "$(awk -F ',' -v OFS=',' '{{ print $3,$4 }}' {input[2]})"
+
+        # remove malformed lines (i.e., empty values for both commonControl and commonEnriched -> ^,$)
+        paste -d ',' <(echo -e "$commonEnriched") <(echo -e "$commonControl") | sed '/^,$/d' |\
+        awk -F ',' -v OFS=',' '{{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $7/$14}}' |\
+        sort -g -k 1,2 | awk -v t={params.threshold} -F "," '$15 > t {{print }}' > {output}
         """
  # write information to BED files   
 rule PosPeaksToBedFile:
@@ -77,10 +88,10 @@ rule PosPeaksToBedFile:
         down=config["TSS sequence extraction"]["downstream"]
     shell:
         """
-        awk -v FS='\t' -v OFS='\t' -F ' ' '{{print $1, $4 - {params.up}, $4 + {params.down}, "TSS_POS_" NR, 0, "+"}}' {input[0]} | uniq > {output[0]}
-        awk -v FS='\t' -v OFS='\t' -F ' ' '{{print $8, $11 - {params.up}, $11 + {params.down}, "TSS_POS_" NR, 0, "+"}}' {input[0]} | uniq > {output[1]}
+        awk -v FS='\t' -v OFS='\t' -F ',' '{{print $1, $4 - {params.up}, $4 + {params.down}, "TSS_POS_" NR, 0, "+"}}' {input[0]} | uniq > {output[0]}
+        awk -v FS='\t' -v OFS='\t' -F ',' '{{print $8, $11 - {params.up}, $11 + {params.down}, "TSS_POS_" NR, 0, "+"}}' {input[0]} | uniq > {output[1]}
         sed -i 's/\"//g' {output[0]}
-        sed -i 's/\"//g' {output[1]}
+        sed -i 's/\"//g' {output[1]}     
         """
 rule NegPeaksToBedFile:
     input: 'results/transcript_boundaries/TSS_{sample}/TSS_{sample}_{ident}/enr_ratios_{sample}_{ident}.minus.csv'
@@ -92,8 +103,8 @@ rule NegPeaksToBedFile:
         down=config["TSS sequence extraction"]["downstream"]
     shell:
         """
-        awk -v FS='\t' -v OFS='\t' -F ' ' '{{print $1, $4 - {params.down}, $4 + {params.up}, "TSS_NEG_" NR,0 , "-"}}' {input[0]} | uniq > {output[0]}
-        awk -v FS='\t' -v OFS='\t' -F ' ' '{{print $8, $11 - {params.down}, $11 + {params.up}, "TSS_NEG_" NR,0 , "-"}}' {input[0]} | uniq > {output[1]}
+        awk -v FS='\t' -v OFS='\t' -F ',' '{{print $1, $4 - {params.down}, $4 + {params.up}, "TSS_NEG_" NR,0 , "-"}}' {input[0]} | uniq > {output[0]}
+        awk -v FS='\t' -v OFS='\t' -F ',' '{{print $8, $11 - {params.down}, $11 + {params.up}, "TSS_NEG_" NR,0 , "-"}}' {input[0]} | uniq > {output[1]}
         sed -i 's/\"//g' {output[0]}
         sed -i 's/\"//g' {output[1]}
         """

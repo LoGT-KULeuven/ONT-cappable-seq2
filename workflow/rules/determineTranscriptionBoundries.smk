@@ -17,20 +17,20 @@ rule createGenomecov:
             -{wildcards.num} \
             -strand {params.symb} > {output[0]}
             """
-# peakcalling of the reads using termseqpeaks
+# peakcalling of the reads using code based on termseqpeaks
 rule termseqPeakCalling:
     input: '{sample}_peak_calling/{prefix}.{num}end.{sign}.bedgraph'
-    output: temp('{sample}_peak_calling/{prefix}.{num}end.{sign}.peaks'), temp('{sample}_peak_calling/{prefix}.{num}end.{sign}.peaks.oracle.narrowPeak')
+    output: temp('{sample}_peak_calling/{prefix}.{num}end.{sign}.peaks.oracle.narrowPeak')
     params:
-        alpha=config["termseq alpha"],
         symb=lambda x: signToSymbol[x.sign]
     conda:
         "../envs/env_transcription_boundaries.yaml"
     shell:
         """
-        termseq_peaks {input} {input} --peaks {output[0]} --strand {params.symb} -t {params.alpha} --oracle-output {output[1]}
+        chmod +x ./peak_calling.py
+        ./peak_calling.py {input} {output} {params.symb}
         """
-# retrieves genome coverage information about the peaks found using termseqpeaks
+# retrieves genome coverage information about the peaks found
 rule combineCovAndPeaks:
     input: '{sample}_peak_calling/{prefix}.{num}end.{sign}.peaks.oracle.narrowPeak', '{sample}_peak_calling/{prefix}.{num}end.{sign}.bedgraph'
     output: temp('{sample}_peak_calling/{prefix}.{num}end.{sign}.peaks.oracle.narrowPeak.counts')

@@ -4,8 +4,9 @@ channels:
   - bioconda
 dependencies:
 - epi2melabs::pychopper
+- biopython
 - pandas=1.5.3
-- cutadapt
+- cutadapt>=4.4
 - minimap2
 - samtools
 - samclip

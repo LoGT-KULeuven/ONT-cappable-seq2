@@ -31,8 +31,8 @@ rule cutadapt:
         """
             cutadapt --poly-a -j 0 -o {output[0]} {input}
             ## reads that are completely trimmed (i.e., remaining sequence is empty) are not removed by default. If not removed, result in ZeroDivisionError for --max-aer argument
-            chmod +x ./remove_polyA_only.py
-            ./remove_polyA_only.py {output[0]} {output[1]}
+            chmod +x ./remove_empty_seqs.py
+            ./remove_empty_seqs.py {output[0]} {output[1]}
             ## --max-aer recommended for long-read sequencing
             cutadapt -j 0 -o {output[2]} {output[1]} --max-aer 0.1
         """
@@ -66,6 +66,7 @@ rule fastaIndex:
         fa=fasta
     shell:
         """
+        export LC_ALL=C
         samtools faidx {params.fa}
         """
 # Soft clipping and converting SAM file to sorted BAM file
@@ -78,6 +79,7 @@ rule clipping:
         fa=fasta
     shell:
         """
+        export LC_ALL=C
         samclip --max 10 --ref  {params.fa} < {input[0]} > {output}
         """
 # convert SAM files to BAM files
@@ -88,6 +90,7 @@ rule samToBam:
         "../envs/env_read_mapping.yaml"
     shell:
         """
+        export LC_ALL=C
         samtools view -S -b {input} > {output}
         """
 # sort BAM files
@@ -98,6 +101,7 @@ rule sortBam:
         "../envs/env_read_mapping.yaml"
     shell:
         """
+        export LC_ALL=C
         samtools sort {input} -o {output}
         """
 #index BAM files
@@ -108,5 +112,6 @@ rule indexSortedBAM:
         "../envs/env_read_mapping.yaml"
     shell:
         """
+        export LC_ALL=C
         samtools index {input}
         """

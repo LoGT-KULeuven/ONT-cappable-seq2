@@ -1,15 +1,29 @@
-rule getGenomeFile:
+# create separate genomefiles for bedtools from each nucleotide sequence in the fasta file.
+# Checkpoint is the alternative to dynamic() in previous snakemake versions
+# TODO: find cleaner way to do this
+checkpoint getGenomeFiles:
     input: expand("{fa}.fai",fa=config["fasta file"])
-    output: temp('{sample}_genome.txt')
+    output: directory("results/transcript_boundaries/gfiles/")
     shell:
         """
-            awk -v OFS='\t' {{'print $1,$2'}} {input} > {output}
+        mkdir {output};
+        while IFS='\t', read first second; do
+          hash=$(echo -n $first | tr -d '"' | md5sum | awk NF=1)
+          echo -e "$first\t$second" > {output}/"$hash"_genome.txt
+        done < {input}
         """
+
+# get the names of the genomefiles
+# input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
+def aggregate_input(wildcards):
+    checkpoint_output = checkpoints.getGenomeFiles.get(**wildcards).output[0]
+    return expand("results/transcript_boundaries/gfiles/{i}_genome.txt", i=glob_wildcards(os.path.join(checkpoint_output, "{i}_genome.txt")).i)
+
 rule PosEffRatios:
     input: 
         '{sample}_peak_calling/{sample}_enriched_{ident}.3end.plus.peaks.oracle.narrowPeak.counts.clustered.csv',
-        '{sample}_genome.txt',
-        'results/alignments/BAM_files_{sample}/{sample}_enriched_{ident}.sorted.bam'
+        'results/alignments/BAM_files_{sample}/{sample}_enriched_{ident}.sorted.bam',
+        aggregate_input
     output: 
         'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/eff_ratios_{sample}_{ident}.plus.drop.coverage'
     params:
@@ -18,15 +32,20 @@ rule PosEffRatios:
         "../envs/env_annotation.yaml"
     shell:
         """
-        bedFile=$(bedtools bamtobed -i {input[2]} | sort -k1,1 -k2,2n)
+        export LC_ALL=C
+
+        bedFile=$(bedtools bamtobed -i {input[1]} | sort -k1,1 -k2,2n)
         posBedFile=$(grep -w "+" <(echo "$bedFile"))
         [ ! -e {output} ] || rm {output}
         > {output}
 
         sort -t ',' -k15 -n -u {input[0]} | awk -F ',' 'NR>1 {{print $2, $15}}' | while read -r chr peak;
         do
-            posBedFileTTS=$(awk -v TTS="$peak" '$2 < TTS-10' <(echo "$posBedFile"))
-            genomeCovFile=$(bedtools genomecov -g {input[1]} -i <(echo "$posBedFileTTS") -d)
+            chrtr=$(echo $chr | tr -d '"')
+            hash_file="results/transcript_boundaries/gfiles/"$(echo -n "$chrtr" | md5sum | awk NF=1)"_genome.txt"
+
+            posBedFileTTS=$(awk -v TTS="$peak" -v chr="$chrtr" '$1 == chr && $2 < TTS-10' <(echo "$posBedFile"))
+            genomeCovFile=$(bedtools genomecov -g $hash_file -i <(echo "$posBedFileTTS") -d)
 
             upstreamTTSaverageCoverage=$(awk -v TTS="$peak" '$2 < TTS && $2 >= TTS-20' <(echo "$genomeCovFile") | \
             awk -v TTS="$peak" '{{total += $3}} END {{print TTS, TTS-20, total/NR}}')
@@ -45,8 +64,8 @@ rule PosEffRatios:
 rule NegEffRatios:
     input: 
         '{sample}_peak_calling/{sample}_enriched_{ident}.3end.minus.peaks.oracle.narrowPeak.counts.clustered.csv',
-        '{sample}_genome.txt',
-        'results/alignments/BAM_files_{sample}/{sample}_enriched_{ident}.sorted.bam'
+        'results/alignments/BAM_files_{sample}/{sample}_enriched_{ident}.sorted.bam',
+        aggregate_input
     output: 
         'results/transcript_boundaries/TTS_{sample}/TTS_{sample}_{ident}/eff_ratios_{sample}_{ident}.minus.drop.coverage'
     params:
@@ -55,16 +74,20 @@ rule NegEffRatios:
         "../envs/env_annotation.yaml"
     shell:
         """
-        bedFile=$(bedtools bamtobed -i {input[2]} | sort -k1,1 -k2,2n)
-        posBedFile=$(grep -w "-" <(echo "$bedFile"))
+        export LC_ALL=C
+
+        bedFile=$(bedtools bamtobed -i {input[1]} | sort -k1,1 -k2,2n)
+        negBedFile=$(grep -w "-" <(echo "$bedFile"))
         [ ! -e {output} ] || rm {output}
         > {output}
 
         sort -t ',' -k15 -n -u {input[0]} | awk -F ',' 'NR>1 {{print $2, $15}}' | while read -r chr peak;
         do
-            posBedFileTTS=$(awk -v TTS="$peak" '$2 < TTS+10' <(echo "$posBedFile"))
-            genomeCovFile=$(bedtools genomecov -g {input[1]} -i <(echo "$posBedFileTTS") -d)
+            chrtr=$(echo $chr | tr -d '"')
+            hash_file="results/transcript_boundaries/gfiles/"$(echo -n "$chrtr" | md5sum | awk NF=1)"_genome.txt"
 
+            negBedFileTTS=$(awk -v TTS="$peak" -v chr="$chrtr" '$1 == chr && $2 < TTS+10' <(echo "$negBedFile"))
+            genomeCovFile=$(bedtools genomecov -g "$hash_file" -i <(echo "$negBedFileTTS") -d)
             downstreamTTSaverageCoverage=$(awk -v TTS="$peak" '$2 < TTS && $2 >= TTS-20' <(echo "$genomeCovFile") | \
             awk -v TTS="$peak" '{{total += $3}} END {{print TTS, TTS-20, total/NR}}')
             upstreamTTSaverageCoverage=$(awk -v TTS="$peak" '$2 > TTS && $2 <= TTS+20' <(echo "$genomeCovFile") |\
