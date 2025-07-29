@@ -85,7 +85,7 @@ rule clipping:
 # convert SAM files to BAM files
 rule samToBam:
     input: "results/alignments/{sample}_{cond}_{ident}_clipped.sam"
-    output: temp("results/alignments/{sample}_{cond}_{ident}.bam")
+    output: temp("results/alignments/raw_bams/{sample}_{cond}_{ident}.bam")
     conda:
         "../envs/env_read_mapping.yaml"
     shell:
@@ -95,7 +95,7 @@ rule samToBam:
         """
 # sort BAM files
 rule sortBam:
-    input: "results/alignments/{sample}_{cond}_{ident}.bam"
+    input: "results/alignments/raw_bams/{sample}_{cond}_{ident}.bam"
     output: "results/alignments/BAM_files_{sample}/{sample}_{cond}_{ident}.sorted.bam"
     conda:
         "../envs/env_read_mapping.yaml"
