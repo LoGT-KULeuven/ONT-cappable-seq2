@@ -15,9 +15,10 @@ rule pychopper:
         "../envs/env_read_mapping.yaml"
     shell:
         """
-        	pychopper -r results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/report_enriched.pdf -S results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/statistics_enriched.tsv {params.enriched} {output[0]}
+        	pychopper -m edlib -b input/PCB114_24_primers.fas -c input/primer_config.txt -r results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/report_enriched.pdf -S results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/statistics_enriched.tsv {params.enriched} {output[0]}
 
-        	pychopper -r results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/report_control.pdf -S results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/statistics_control.tsv {params.control} {output[1]}
+        	pychopper -m edlib -b input/PCB114_24_primers.fas -c input/primer_config.txt -r results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/report_control.pdf -S results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/statistics_control.tsv {params.control} {output[1]}
+
         """
 
 rule cutadapt:
