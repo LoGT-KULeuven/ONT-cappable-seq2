@@ -15,16 +15,24 @@ rule pychopper:
         "../envs/env_read_mapping.yaml"
     shell:
         """
-        	pychopper -r results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/report_enriched.pdf -S results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/statistics_enriched.tsv {params.enriched} {output[0]}
-
-        	pychopper -r results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/report_control.pdf -S results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/statistics_control.tsv {params.control} {output[1]}
+        	pychopper -m edlib -b input/PCB114_24_primers.fas -c input/primer_config.txt -r results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/report_enriched.pdf -S results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/statistics_enriched.tsv {params.enriched} {output[0]}
+            pychopper -m edlib -b input/PCB114_24_primers.fas -c input/primer_config.txt -r results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/report_control.pdf -S results/processed_fastq/pychopper/pychopper_{params.sample}_{params.ident}/statistics_control.tsv {params.control} {output[1]}
         """
 
 rule cutadapt:
     input: "results/processed_fastq/pychopper/pychopper_{sample}_{ident}/{sample}_{cond}_{ident}_full_length_output.fq"
+    output: temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_2.fq")
+    conda:
+        "../envs/env_read_mapping.yaml"
+    shell:
+        """
+            cutadapt -a CTTGCGGGCGGCGGACTCTCCTCTGAAGATAGAGCGACAGGCAAG -e 0.1 -j 0 -o {output} {input}
+        """
+rule cutadapt2:
+    input: "results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_2.fq"
     output: temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_temp1.fq"),
             temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_temp2.fq"),
-            temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_2.fq")
+            temp("results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_3.fq")
     conda:
         "../envs/env_read_mapping.yaml"
     shell:
@@ -36,14 +44,14 @@ rule cutadapt:
             ## --max-aer recommended for long-read sequencing
             cutadapt -j 0 -o {output[2]} {output[1]} --max-aer 0.1
         """
-rule cutadapt2:
-    input: "results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_2.fq"
+rule cutadapt3:
+    input: "results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt_3.fq"
     output: "results/processed_fastq/cutadapt/{sample}_{cond}_{ident}_cutadapt.fq"
     conda:
         "../envs/env_read_mapping.yaml"
     shell:
         """
-            cutadapt -g TTTCTGTTGGTGCTGATATTGCTGGG -e 0.1 -j 0 -o {output} {input}
+            cutadapt -g TTTCTGTTGGTGCTGATATTGCTTTVVVVTTVVVVTTVVVVTTVVVVTTTGGG -e 0.1 -j 0 -o {output} {input}
         """
 # Mapping reads onto genome
 rule minimap2:
